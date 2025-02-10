@@ -1,7 +1,7 @@
 @echo off
 REM Set the classpath by listing all JAR files in the current directory
 set CLASSPATH=.
-for %%f in (*.jar) do (
+for %%f in (.\jars\*.jar) do (
     set CLASSPATH=!CLASSPATH!;%%f
 )
 
