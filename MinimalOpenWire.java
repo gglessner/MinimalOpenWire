@@ -22,7 +22,7 @@ public class MinimalOpenWire {
     public static void main(String[] args) {
         // Validate command-line arguments
         if (args.length < 5 || args.length > 6) {
-            System.err.println("Usage: java MinimalOpenWire <host> <port> <username> <password> <queueName> [read|readwrite|browse|write|monitoradmin|listqueues]");
+            System.err.println("Usage: java MinimalOpenWire <host> <port> <username> <password> <queueName> [read|readwrite|browse|write|monitoradvisory|listqueues]");
             System.exit(1);
         }
 
@@ -64,7 +64,7 @@ public class MinimalOpenWire {
                 case "write":
                     sendMessage(session, queue);
                     break;
-                case "monitoradmin":
+                case "monitoradvisory":
                     monitorAdvisoryQueue(session);
                     break;
                 case "listqueues":
