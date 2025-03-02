@@ -15,6 +15,9 @@ import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.DestinationInfo;
+import org.apache.activemq.command.BrokerInfo;
+import org.apache.activemq.transport.Transport;
+import org.apache.activemq.transport.tcp.TcpTransport;
 
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -224,19 +227,79 @@ public class MinimalOpenWire {
     }
 
     /**
-     * Detects potential information leakage by retrieving broker metadata.
+     * Detects potential information leakage by retrieving and displaying all available broker metadata.
      */
     private static void detectInfoLeakage(Connection connection) {
         if (connection instanceof ActiveMQConnection) {
             ActiveMQConnection amqConn = (ActiveMQConnection) connection;
             try {
-                String brokerName = amqConn.getBrokerName();
-                System.out.println("Broker Name: " + brokerName);
+                // --- Broker Information ---
+                System.out.println("=== Broker Information ===");
+                System.out.println("Broker Name: " + amqConn.getBrokerName());
+            
+                BrokerInfo brokerInfo = amqConn.getBrokerInfo();
+                if (brokerInfo != null) {
+                    System.out.println("Broker ID: " + brokerInfo.getBrokerId());
+                    System.out.println("Broker URL: " + brokerInfo.getBrokerURL());
+                    // Removed getBrokerVersion() as it’s not available
+                
+                    BrokerInfo[] peers = brokerInfo.getPeerBrokerInfos();
+                    if (peers != null && peers.length > 0) {
+                        System.out.println("Peer Brokers:");
+                        for (BrokerInfo peer : peers) {
+                            System.out.println("  - Name: " + peer.getBrokerName() + 
+                                               ", ID: " + peer.getBrokerId());
+                        }
+                    } else {
+                        System.out.println("Peer Brokers: None");
+                    }
+                } else {
+                    System.out.println("BrokerInfo unavailable");
+                }
+
+                // --- JMS Metadata ---
                 jakarta.jms.ConnectionMetaData meta = connection.getMetaData();
+                System.out.println("\n=== JMS Metadata ===");
                 System.out.println("JMS Version: " + meta.getJMSVersion());
+                System.out.println("JMS Major Version: " + meta.getJMSMajorVersion());
+                System.out.println("JMS Minor Version: " + meta.getJMSMinorVersion());
+                System.out.println("Provider Name: " + meta.getJMSProviderName());
                 System.out.println("Provider Version: " + meta.getProviderVersion());
+                System.out.println("Provider Major Version: " + meta.getProviderMajorVersion());
+                System.out.println("Provider Minor Version: " + meta.getProviderMinorVersion());
+            
+                Enumeration jmsxProps = meta.getJMSXPropertyNames();
+                System.out.print("Supported JMSX Properties: ");
+                if (jmsxProps.hasMoreElements()) {
+                    StringBuilder props = new StringBuilder();
+                    while (jmsxProps.hasMoreElements()) {
+                        props.append(jmsxProps.nextElement()).append(", ");
+                    }
+                    System.out.println(props.substring(0, props.length() - 2));
+                } else {
+                    System.out.println("None");
+                }
+
+                // --- Transport Information ---
+                System.out.println("\n=== Transport Information ===");
+                Transport transport = amqConn.getTransport();
+                System.out.println("Transport Type: " + transport.getClass().getName());
+                System.out.println("Transport Details: " + transport.toString());
+                if (transport instanceof TcpTransport) {
+                    TcpTransport tcpTransport = (TcpTransport) transport;
+                    System.out.println("Remote Address: " + tcpTransport.getRemoteAddress());
+                }
+
+                // --- Miscellaneous ---
+                System.out.println("\n=== Miscellaneous ===");
+                System.out.println("Client ID: " + (amqConn.getClientID() != null ? amqConn.getClientID() : "Not set"));
+                System.out.println("Connection Started: " + amqConn.isStarted());
+                System.out.println("Connection Closed: " + amqConn.isClosed());
+
             } catch (JMSException e) {
                 System.out.println("Failed to retrieve broker info: " + e.getMessage());
+            } catch (Exception e) {
+                System.out.println("Unexpected error: " + e.getMessage());
             }
         } else {
             System.out.println("Connection is not an ActiveMQConnection.");
