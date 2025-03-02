@@ -14,8 +14,9 @@ import jakarta.jms.Topic;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQQueue;
-import org.apache.activemq.command.DestinationInfo;
+import org.apache.activemq.command.ActiveMQTopic;
 import org.apache.activemq.command.BrokerInfo;
+import org.apache.activemq.command.DestinationInfo;
 import org.apache.activemq.transport.Transport;
 import org.apache.activemq.transport.tcp.TcpTransport;
 
@@ -30,7 +31,7 @@ public class MinimalOpenWire {
             System.err.println("Usage: java MinimalOpenWire <host> <port> <username> <password> <destinationName> " +
                     "[readqueue|readtopic|writequeue|writetopic|readwritequeue|readwritetopic|browsequeue|" +
                     "readqueueloop|readtopicloop|browsequeueloop|monitoradvisory|listall|authenticationbypass|" +
-                    "authorizationcheck|intercept|dos|infoleak|forge]");
+                    "authorizationcheck|intercept|dos|infoleak|forge|deletequeue|deletetopic]");
             System.exit(1);
         }
 
@@ -126,6 +127,34 @@ public class MinimalOpenWire {
                     break;
                 case "forge":
                     sendForgedMessage(session, session.createQueue(destinationName));
+                    break;
+                case "deletequeue":
+                    if (connection instanceof ActiveMQConnection) {
+                        ActiveMQConnection amqConn = (ActiveMQConnection) connection;
+                        ActiveMQQueue queueToDelete = new ActiveMQQueue(destinationName);
+                        try {
+                            amqConn.destroyDestination(queueToDelete);
+                            System.out.println("Queue deleted: " + destinationName);
+                        } catch (JMSException e) {
+                            System.out.println("Failed to delete queue: " + e.getMessage());
+                        }
+                    } else {
+                        System.out.println("Connection is not an ActiveMQConnection.");
+                    }
+                    break;
+                case "deletetopic":
+                    if (connection instanceof ActiveMQConnection) {
+                        ActiveMQConnection amqConn = (ActiveMQConnection) connection;
+                        ActiveMQTopic topicToDelete = new ActiveMQTopic(destinationName);
+                        try {
+                            amqConn.destroyDestination(topicToDelete);
+                            System.out.println("Topic deleted: " + destinationName);
+                        } catch (JMSException e) {
+                            System.out.println("Failed to delete topic: " + e.getMessage());
+                        }
+                    } else {
+                        System.out.println("Connection is not an ActiveMQConnection.");
+                    }
                     break;
                 default:
                     System.err.println("Unknown operation: " + operation);
@@ -236,13 +265,12 @@ public class MinimalOpenWire {
                 // --- Broker Information ---
                 System.out.println("=== Broker Information ===");
                 System.out.println("Broker Name: " + amqConn.getBrokerName());
-            
+                
                 BrokerInfo brokerInfo = amqConn.getBrokerInfo();
                 if (brokerInfo != null) {
                     System.out.println("Broker ID: " + brokerInfo.getBrokerId());
                     System.out.println("Broker URL: " + brokerInfo.getBrokerURL());
-                    // Removed getBrokerVersion() as it’s not available
-                
+                    
                     BrokerInfo[] peers = brokerInfo.getPeerBrokerInfos();
                     if (peers != null && peers.length > 0) {
                         System.out.println("Peer Brokers:");
@@ -267,8 +295,8 @@ public class MinimalOpenWire {
                 System.out.println("Provider Version: " + meta.getProviderVersion());
                 System.out.println("Provider Major Version: " + meta.getProviderMajorVersion());
                 System.out.println("Provider Minor Version: " + meta.getProviderMinorVersion());
-            
-                Enumeration jmsxProps = meta.getJMSXPropertyNames();
+                
+                Enumeration<String> jmsxProps = castEnumeration(meta.getJMSXPropertyNames());
                 System.out.print("Supported JMSX Properties: ");
                 if (jmsxProps.hasMoreElements()) {
                     StringBuilder props = new StringBuilder();
@@ -370,10 +398,10 @@ public class MinimalOpenWire {
      */
     private static void browseQueue(Session session, Destination queue) throws JMSException {
         QueueBrowser browser = session.createBrowser((Queue) queue);
-        Enumeration<?> messages = browser.getEnumeration();
+        Enumeration<Message> messages = castEnumeration(browser.getEnumeration());
         int count = 0;
         while (messages.hasMoreElements()) {
-            Message msg = (Message) messages.nextElement();
+            Message msg = messages.nextElement();
             if (msg instanceof TextMessage) {
                 TextMessage txtMsg = (TextMessage) msg;
                 System.out.println("Browsed message " + ++count + ": " + txtMsg.getText());
@@ -415,9 +443,9 @@ public class MinimalOpenWire {
         while (true) {
             Queue queue = session.createQueue(destinationName);
             QueueBrowser browser = session.createBrowser(queue);
-            Enumeration<?> messages = browser.getEnumeration();
+            Enumeration<Message> messages = castEnumeration(browser.getEnumeration());
             while (messages.hasMoreElements()) {
-                Message message = (Message) messages.nextElement();
+                Message message = messages.nextElement();
                 String messageId = message.getJMSMessageID();
                 if (!seenMessageIds.contains(messageId)) {
                     seenMessageIds.add(messageId);
@@ -483,5 +511,14 @@ public class MinimalOpenWire {
         } catch (JMSException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Helper method to cast raw Enumeration to a parameterized type.
+     * Suppression is safe because the JMS API guarantees the type of elements.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Enumeration<T> castEnumeration(Enumeration raw) {
+        return (Enumeration<T>) raw;
     }
 }
