@@ -16,8 +16,8 @@ import java.util.concurrent.TimeUnit;
 public class MinimalOpenWire {
     public static void main(String[] args) {
         // Validate command-line arguments
-        if (args.length < 5 || args.length > 6) {
-            System.err.println("Usage: java MinimalOpenWire <host> <port> <username> <password> <destinationName> " +
+        if (args.length < 6 || args.length > 7) {
+            System.err.println("Usage: java MinimalOpenWire <method> <host> <port> <username> <password> <destinationName> " +
                     "[readqueue|readtopic|writequeue|writetopic|readwritequeue|readwritetopic|browsequeue|" +
                     "readqueueloop|readtopicloop|browsequeueloop|monitoradvisory|listall|authenticationbypass|" +
                     "authorizationcheck|intercept|dos|infoleak|forge|deletequeue|deletetopic]");
@@ -25,15 +25,16 @@ public class MinimalOpenWire {
         }
 
         // Parse command-line arguments
-        String host = args[0];
-        String port = args[1];
-        String user = args[2];
-        String password = args[3];
-        String destinationName = args[4];
-        String operation = args.length == 6 ? args[5].toLowerCase() : "readwritequeue"; // Default operation
+        String conntransport = args[0];
+        String host = args[1];
+        String port = args[2];
+        String user = args[3];
+        String password = args[4];
+        String destinationName = args[5];
+        String operation = args.length == 7 ? args[6].toLowerCase() : "readwritequeue"; // Default operation
 
         // Construct broker URL
-        String brokerURL = "tcp://" + host + ":" + port;
+        String brokerURL = conntransport + "://" + host + ":" + port;
 
         Connection connection = null;
         Session session = null;
@@ -97,7 +98,7 @@ public class MinimalOpenWire {
                     listQueuesAndTopics(connection);
                     break;
                 case "authenticationbypass":
-                    testAuthenticationBypass(host, port);
+                    testAuthenticationBypass(conntransport, host, port);
                     break;
                 case "authorizationcheck":
                     testAuthorization(session);
@@ -331,9 +332,9 @@ public class MinimalOpenWire {
     }
 
     // Testing Authentication Bypass
-    private static void testAuthenticationBypass(String host, String port) {
+    private static void testAuthenticationBypass(String conntransport, String host, String port) {
         String[] credentials = {"admin:admin", "guest:guest", "user:password", "test:test"};
-        String brokerURL = "tcp://" + host + ":" + port;
+        String brokerURL = conntransport + "://" + host + ":" + port;
 
         for (String cred : credentials) {
             String[] parts = cred.split(":");
